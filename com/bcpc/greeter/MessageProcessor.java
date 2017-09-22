@@ -1,52 +1,58 @@
 package com.bcpc.greeter;
 
+import java.util.Stack;
+
 import com.bcpc.greeter.db.MessagingDao;
+import com.bcpc.greeter.exceptions.GreeterException;
+import com.bcpc.greeter.exceptions.GreeterException.ErrorCode;
 import com.google.inject.Inject;
 
 public class MessageProcessor {
 
-	
 	private final MessagingDao dao;
-	
+
 	@Inject
-	MessageProcessor(PropertyManager pMgr, MessagingDao dao)
-	{
+	MessageProcessor(PropertyManager pMgr, MessagingDao dao) {
 		this.dao = dao;
 	}
-	
-	public void processMessage(String body, String fromNumber) throws Exception
-	{
+
+	public void processMessage(String body, String fromNumber) throws Exception {
 		String emailId = null;
-		String name = null;
-		
+		StringBuffer name = new StringBuffer();
+
 		String[] details = MessageUtil.extractFromBody(body);
 
 		if (details != null) {
-			if (details.length != 2) {
-				throw new Exception("INVALID INPUT FORMAT");
+			if (details.length < 2) {
+				throw new GreeterException("", ErrorCode.FORMAT_ERROR);
 			}
 		}
-		
-		if(MessageUtil.isValidEmail(details[0]))
-		{
-			emailId = details[0];
-			name = details[1];
+
+		for (String b : details) {
+			if (MessageUtil.isValidEmail(b)) {
+				emailId = b;
+			} else {
+				name.append(b).append(" ");
+			}
 		}
-		else if(MessageUtil.isValidEmail(details[1]))
-		{
-			emailId = details[1];
-			name = details[0];
+
+		if (isMessageInDb(fromNumber)) {
+			throw new GreeterException("", ErrorCode.ALREADY_REGISTERED_ERROR);
 		}
-		else
-		{
-			throw new Exception("INVALID EMAIL FORMAT");
+
+		dao.insertMessageToDb(fromNumber, name.toString(), emailId);
+	}
+
+	private boolean isMessageInDb(String fromNumber) {
+		MessageStoreBean bean = dao.checkIfmessageInDb(fromNumber);
+		if (null == bean) {
+			return false;
 		}
-		
-		if(dao.checkIfmessageInDb(fromNumber))
-		{
-			throw new Exception("NUMBER ALREADY REGISTERED");
+
+		if (bean.getErrorCd() == ErrorCode.FORMAT_ERROR.getId()) {
+
 		}
-		
-		dao.insertMessageToDb(fromNumber, name, emailId);
+
+		return true;
 	}
 }

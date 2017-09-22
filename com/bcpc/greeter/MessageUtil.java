@@ -18,4 +18,5 @@ public class MessageUtil {
 	{
 		return bodyStr.split(SPACE);
 	}
+	
 }

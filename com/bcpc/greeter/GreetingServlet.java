@@ -2,7 +2,7 @@ package com.bcpc.greeter;
 
 import static com.bcpc.greeter.Constants.ACCOUNT_SID;
 import static com.bcpc.greeter.Constants.ACCOUNT_TOKEN;
-import static com.bcpc.greeter.Constants.MSG_REPLY;
+import static com.bcpc.greeter.Constants.SUCCESS_MSG_REPLY;
 
 import java.io.IOException;
 
@@ -11,6 +11,9 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.bcpc.greeter.exceptions.GreeterException;
+import com.bcpc.greeter.exceptions.GreeterUnresolvedException;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import com.twilio.Twilio;
@@ -43,10 +46,10 @@ public class GreetingServlet extends HttpServlet {
 	public void doGet(HttpServletRequest request, HttpServletResponse response) {
 
 		props.load(request.getServletContext());
-
+		
 		String accId = props.getStringProp(ACCOUNT_SID);
 		String accToken = props.getStringProp(ACCOUNT_TOKEN);
-		
+
 		MessagingResponse mResponse = null;
 
 		log.info(String.format("Initializing twilio using accId : %s, accToken: %s", accId, accToken));
@@ -60,20 +63,25 @@ public class GreetingServlet extends HttpServlet {
 
 			processor.processMessage(body, fromNumber);
 
-			mResponse = new MessagingResponse.Builder().message(buildMessage(MSG_REPLY)).build();
+			mResponse = new MessagingResponse.Builder().message(buildMessage(SUCCESS_MSG_REPLY)).build();
 
-			
-		} catch (Throwable e) {
+		} catch (GreeterException e) {
 			log.error(e.getMessage(), e);
 			mResponse = new MessagingResponse.Builder().message(buildMessage(e.getMessage())).build();
+		} catch (GreeterUnresolvedException e) {
+			log.error(e.getMessage(), e);
+			mResponse = new MessagingResponse.Builder().message(buildMessage(SUCCESS_MSG_REPLY)).build();
+		} catch (Throwable e) {
+			log.error(e.getMessage(), e);
+			mResponse = new MessagingResponse.Builder().message(buildMessage(SUCCESS_MSG_REPLY)).build();
 		}
 		response.setContentType("application/xml");
 
 		try {
 			response.getWriter().write(mResponse.toXml());
-		} catch (IOException |TwiMLException  e) {
+		} catch (IOException | TwiMLException e) {
 			log.error(e.getMessage(), e);
-		} 
+		}
 	}
 
 	private Message buildMessage(String message) {

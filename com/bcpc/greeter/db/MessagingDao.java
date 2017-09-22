@@ -6,6 +6,8 @@ import java.sql.ResultSet;
 import java.sql.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.bcpc.greeter.MessageStoreBean;
 import com.google.inject.Inject;
 
 public class MessagingDao extends BaseDao {
@@ -18,11 +20,11 @@ public class MessagingDao extends BaseDao {
 		this.manager = manager;
 	}
 
-	public boolean checkIfmessageInDb(String fromNumber) {
+	public MessageStoreBean checkIfmessageInDb(String fromNumber) {
 		Connection conn = null;
 		ResultSet rs = null;
 		PreparedStatement pst = null;
-		boolean isPresent = false;
+		MessageStoreBean bean = null;
 
 		try {
 			conn = manager.createConnection();
@@ -34,11 +36,10 @@ public class MessagingDao extends BaseDao {
 			
 			if(rs.next())
 			{
-				int count = rs.getInt(1);
-				if(count > 0)
-				{
-					isPresent = true;
-				}
+				bean = new MessageStoreBean();
+				bean.setpNumber(fromNumber);
+				bean.setErrorFlag(rs.getString("IS_ERROR_FLAG"));
+				bean.setErrorCd(rs.getInt("ERROR_CD"));
 			}
 
 		} catch (Exception e) {
@@ -49,7 +50,7 @@ public class MessagingDao extends BaseDao {
 			closeConnection(conn);
 		}
 		
-		return isPresent;
+		return bean;
 	}
 
 	public boolean insertMessageToDb(String fromNumber, String fromName, String emailId) {
@@ -82,7 +83,8 @@ public class MessagingDao extends BaseDao {
 	}
 
 	static interface Query {
-		public static final String INSERT_MSG_SQL = "INSERT INTO MESSAGE_STORE (MSG_FROM,MSG_EMAIL,MSG_FROM_NUM,CREATED_TS) VALUES (?,?,?,?) ";
-		public static final String SELECT_MSG_SQL = "SELECT count(*), MSG_FROM from MESSAGE_STORE where MSG_FROM_NUM = ?";
+		public static final String UPDATE_MSG_SQL = "UPDATE MESSAGE_STORE set MSG_FROM_NAME = ? , MSG_FROM_EMAIL = ? WHERE MSG_FROM_NUM = ?";
+		public static final String INSERT_MSG_SQL = "INSERT INTO MESSAGE_STORE (MSG_FROM_NAME,MSG_FROM_EMAIL,MSG_FROM_NUM,IS_ERROR_FLAG,ERROR_MSG,ERROR_CD,CREATED_TS) VALUES (?,?,?,?,?,?,?) ";
+		public static final String SELECT_MSG_SQL = "SELECT count(*), MSG_FROM_NAME, IS_ERROR_FLAG, ERROR_CD from MESSAGE_STORE where MSG_FROM_NUM = ? group by MSG_FROM_NAME, IS_ERROR_FLAG";
 	}
 }

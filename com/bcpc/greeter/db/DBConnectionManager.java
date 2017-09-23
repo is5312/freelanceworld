@@ -6,7 +6,6 @@ import java.sql.SQLException;
 import javax.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.bcpc.greeter.PropertyManager;
 import com.google.inject.Singleton;
 

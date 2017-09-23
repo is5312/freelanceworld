@@ -1,11 +1,11 @@
 package com.bcpc.greeter;
 
-import java.util.Stack;
-
 import com.bcpc.greeter.db.MessagingDao;
 import com.bcpc.greeter.exceptions.GreeterException;
 import com.bcpc.greeter.exceptions.GreeterException.ErrorCode;
+import com.bcpc.greeter.exceptions.GreeterUnresolvedException;
 import com.google.inject.Inject;
+import com.mysql.jdbc.StringUtils;
 
 public class MessageProcessor {
 
@@ -19,12 +19,20 @@ public class MessageProcessor {
 	public void processMessage(String body, String fromNumber) throws Exception {
 		String emailId = null;
 		StringBuffer name = new StringBuffer();
-
 		String[] details = MessageUtil.extractFromBody(body);
 
-		if (details != null) {
-			if (details.length < 2) {
+		MessageStoreBean bean = dao.checkIfmessageInDb(fromNumber);
+		String errFlag = "N";
+
+		// the message body is invalid
+		if (!isValidMessageDetails(details)) {
+			//number doesnt exist in db
+			if (null == bean) {
+				dao.insertMessageToDb(fromNumber, name.toString(), emailId, ErrorCode.FORMAT_ERROR);
 				throw new GreeterException("", ErrorCode.FORMAT_ERROR);
+			} else {
+				//number exists in db - validate
+				validateExistingDetailsInDb(bean, errFlag, fromNumber, emailId, name.toString());
 			}
 		}
 
@@ -36,23 +44,45 @@ public class MessageProcessor {
 			}
 		}
 
-		if (isMessageInDb(fromNumber)) {
+		// message exists in DB
+		if (null != bean && bean.getErrorFlag() != null) {
+			validateExistingDetailsInDb(bean, errFlag, fromNumber, emailId, name.toString());
+		} else {
+			// message doesn't exist in DB
+			if (StringUtils.isNullOrEmpty(emailId) || StringUtils.isNullOrEmpty(name.toString())) {
+				// The message format is invalid
+				dao.insertMessageToDb(fromNumber, name.toString(), emailId, ErrorCode.FORMAT_ERROR);
+				throw new GreeterException("", ErrorCode.FORMAT_ERROR);
+			}
+
+			dao.insertMessageToDb(fromNumber, name.toString(), emailId, null);
+		}
+	}
+
+	private void validateExistingDetailsInDb(MessageStoreBean bean, String errFlag, String fromNumber, String emailId,
+			String name) throws GreeterException, GreeterUnresolvedException {
+		// There is an active error which needs to be resolved
+		if (bean.getErrorFlag().equalsIgnoreCase("Y") && bean.getErrorCd() == ErrorCode.FORMAT_ERROR.getId()) {
+
+			if (StringUtils.isNullOrEmpty(emailId) || StringUtils.isNullOrEmpty(name)) {
+				throw new GreeterException("", ErrorCode.FORMAT_ERROR);
+			}
+			dao.updateMessageToDb(fromNumber, name, emailId, errFlag);
+		} else {
+			// There is no active error and the number is already present
 			throw new GreeterException("", ErrorCode.ALREADY_REGISTERED_ERROR);
 		}
-
-		dao.insertMessageToDb(fromNumber, name.toString(), emailId);
 	}
 
-	private boolean isMessageInDb(String fromNumber) {
-		MessageStoreBean bean = dao.checkIfmessageInDb(fromNumber);
-		if (null == bean) {
-			return false;
+	private boolean isValidMessageDetails(String[] details) {
+		boolean isValid = true;
+
+		if (details != null) {
+			if (details.length < 2) {
+				isValid = false;
+			}
 		}
-
-		if (bean.getErrorCd() == ErrorCode.FORMAT_ERROR.getId()) {
-
-		}
-
-		return true;
+		return isValid;
 	}
+
 }

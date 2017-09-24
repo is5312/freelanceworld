@@ -8,9 +8,15 @@ public class MessageStoreBean {
 	private String errorFlag;
 	private String errorMsg;
 	private int errorCd;
+	private int retryCnt;
 	
 	
-	
+	public int getRetryCnt() {
+		return retryCnt;
+	}
+	public void setRetryCnt(int retryCnt) {
+		this.retryCnt = retryCnt;
+	}
 	public int getErrorCd() {
 		return errorCd;
 	}

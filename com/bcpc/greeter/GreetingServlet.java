@@ -46,7 +46,7 @@ public class GreetingServlet extends HttpServlet {
 	public void doGet(HttpServletRequest request, HttpServletResponse response) {
 
 		props.load(request.getServletContext());
-		
+
 		String accId = props.getStringProp(ACCOUNT_SID);
 		String accToken = props.getStringProp(ACCOUNT_TOKEN);
 
@@ -70,15 +70,20 @@ public class GreetingServlet extends HttpServlet {
 			mResponse = new MessagingResponse.Builder().message(buildMessage(e.getMessage())).build();
 		} catch (GreeterUnresolvedException e) {
 			log.error(e.getMessage(), e);
-			mResponse = new MessagingResponse.Builder().message(buildMessage(SUCCESS_MSG_REPLY)).build();
+			// mResponse = new
+			// MessagingResponse.Builder().message(buildMessage(SUCCESS_MSG_REPLY)).build();
 		} catch (Throwable e) {
 			log.error(e.getMessage(), e);
-			mResponse = new MessagingResponse.Builder().message(buildMessage(SUCCESS_MSG_REPLY)).build();
+			// mResponse = new
+			// MessagingResponse.Builder().message(buildMessage(SUCCESS_MSG_REPLY)).build();
 		}
 		response.setContentType("application/xml");
 
 		try {
-			response.getWriter().write(mResponse.toXml());
+			if (mResponse != null) {
+				response.getWriter().write(mResponse.toXml());
+			}
+
 		} catch (IOException | TwiMLException e) {
 			log.error(e.getMessage(), e);
 		}

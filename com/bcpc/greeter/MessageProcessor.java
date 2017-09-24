@@ -6,6 +6,7 @@ import com.bcpc.greeter.exceptions.GreeterException.ErrorCode;
 import com.bcpc.greeter.exceptions.GreeterUnresolvedException;
 import com.google.inject.Inject;
 import com.mysql.jdbc.StringUtils;
+import static com.bcpc.greeter.Constants.MAX_RETRY_CNT_DEF;
 
 public class MessageProcessor {
 
@@ -26,12 +27,12 @@ public class MessageProcessor {
 
 		// the message body is invalid
 		if (!isValidMessageDetails(details)) {
-			//number doesnt exist in db
+			// number doesnt exist in db
 			if (null == bean) {
 				dao.insertMessageToDb(fromNumber, name.toString(), emailId, ErrorCode.FORMAT_ERROR);
 				throw new GreeterException("", ErrorCode.FORMAT_ERROR);
 			} else {
-				//number exists in db - validate
+				// number exists in db - validate
 				validateExistingDetailsInDb(bean, errFlag, fromNumber, emailId, name.toString());
 			}
 		}
@@ -45,7 +46,7 @@ public class MessageProcessor {
 		}
 
 		// message exists in DB
-		if (null != bean && bean.getErrorFlag() != null) {
+		if (null != bean ) {
 			validateExistingDetailsInDb(bean, errFlag, fromNumber, emailId, name.toString());
 		} else {
 			// message doesn't exist in DB
@@ -62,13 +63,25 @@ public class MessageProcessor {
 	private void validateExistingDetailsInDb(MessageStoreBean bean, String errFlag, String fromNumber, String emailId,
 			String name) throws GreeterException, GreeterUnresolvedException {
 		// There is an active error which needs to be resolved
-		if (bean.getErrorFlag().equalsIgnoreCase("Y") && bean.getErrorCd() == ErrorCode.FORMAT_ERROR.getId()) {
-
+		if (bean.getErrorFlag() != null && bean.getErrorFlag().equalsIgnoreCase("Y") && bean.getErrorCd() == ErrorCode.FORMAT_ERROR.getId()) {
+			if (bean.getRetryCnt() > MAX_RETRY_CNT_DEF) {
+				throw new GreeterException("", ErrorCode.EXCEEDED_MAX_RETRY_CNT);
+			}
 			if (StringUtils.isNullOrEmpty(emailId) || StringUtils.isNullOrEmpty(name)) {
 				throw new GreeterException("", ErrorCode.FORMAT_ERROR);
 			}
-			dao.updateMessageToDb(fromNumber, name, emailId, errFlag);
+			dao.updateMessageToDb(fromNumber, name, emailId, errFlag, bean.getRetryCnt() + 1);
 		} else {
+			if (bean.getRetryCnt() > MAX_RETRY_CNT_DEF) {
+				throw new GreeterException("", ErrorCode.EXCEEDED_MAX_RETRY_CNT);
+			}
+			if (null != bean.getErrorFlag() && bean.getErrorFlag().equalsIgnoreCase("Y")) {
+				dao.updateMessageToDb(fromNumber, name, emailId, errFlag, bean.getRetryCnt() + 1);
+			}
+			else
+			{
+				dao.updateMessageCntToDb(fromNumber, bean.getRetryCnt() + 1);
+			}
 			// There is no active error and the number is already present
 			throw new GreeterException("", ErrorCode.ALREADY_REGISTERED_ERROR);
 		}

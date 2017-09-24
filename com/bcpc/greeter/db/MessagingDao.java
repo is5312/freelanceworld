@@ -40,6 +40,7 @@ public class MessagingDao extends BaseDao {
 				bean.setpNumber(fromNumber);
 				bean.setErrorFlag(rs.getString("IS_ERROR_FLAG"));
 				bean.setErrorCd(rs.getInt("ERROR_CD"));
+				bean.setRetryCnt(rs.getInt("RETRY_CNT"));
 			}
 
 		} catch (Exception e) {
@@ -89,8 +90,36 @@ public class MessagingDao extends BaseDao {
 
 		return isSuccess;
 	}
+	
+	public boolean updateMessageCntToDb(String fromNumber, int errCnt) {
+		Connection conn = null;
+		PreparedStatement pst = null;
+		boolean isSuccess = false;
+		try {
+			conn = manager.createConnection();
+			pst = conn.prepareStatement(Query.UPDATE_CNT_MSG_SQL);
+			pst.setInt(1, errCnt);
+			pst.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
+			pst.setString(3, fromNumber);
 
-	public boolean updateMessageToDb(String fromNumber, String fromName, String emailId, String errFlg) {
+			pst.execute();
+
+			if (pst.getUpdateCount() == 1) {
+				isSuccess = true;
+			}
+
+		} catch (Exception e) {
+			log.error(e.getMessage(), e);
+		} finally {
+			closeStatement(pst);
+			closeConnection(conn);
+		}
+
+		return isSuccess;
+	}
+	
+
+	public boolean updateMessageToDb(String fromNumber, String fromName, String emailId, String errFlg, int errCnt) {
 		Connection conn = null;
 		PreparedStatement pst = null;
 		boolean isSuccess = false;
@@ -105,8 +134,10 @@ public class MessagingDao extends BaseDao {
 			} else {
 				pst.setString(3, errFlg);
 			}
-			pst.setTimestamp(4, new Timestamp(System.currentTimeMillis()));
-			pst.setString(5, fromNumber);
+			
+			pst.setInt(4, errCnt);
+			pst.setTimestamp(5, new Timestamp(System.currentTimeMillis()));
+			pst.setString(6, fromNumber);
 
 			pst.execute();
 
@@ -125,8 +156,9 @@ public class MessagingDao extends BaseDao {
 	}
 
 	static interface Query {
-		public static final String UPDATE_MSG_SQL = "UPDATE MESSAGE_STORE set MSG_FROM_NAME = ? , MSG_FROM_EMAIL = ?, IS_ERROR_FLAG = ?, UPDATED_TS = ? WHERE MSG_FROM_NUM = ?";
+		public static final String UPDATE_CNT_MSG_SQL = "UPDATE MESSAGE_STORE set RETRY_CNT = ?,UPDATED_TS = ? WHERE MSG_FROM_NUM = ?";
+		public static final String UPDATE_MSG_SQL = "UPDATE MESSAGE_STORE set MSG_FROM_NAME = ? , MSG_FROM_EMAIL = ?, IS_ERROR_FLAG = ?, RETRY_CNT=?, UPDATED_TS = ? WHERE MSG_FROM_NUM = ?";
 		public static final String INSERT_MSG_SQL = "INSERT INTO MESSAGE_STORE (MSG_FROM_NAME,MSG_FROM_EMAIL,MSG_FROM_NUM,IS_ERROR_FLAG,ERROR_MSG,ERROR_CD,CREATED_TS) VALUES (?,?,?,?,?,?,?) ";
-		public static final String SELECT_MSG_SQL = "SELECT count(*), MSG_FROM_NAME, IS_ERROR_FLAG, ERROR_CD from MESSAGE_STORE where MSG_FROM_NUM = ? group by MSG_FROM_NAME, IS_ERROR_FLAG";
+		public static final String SELECT_MSG_SQL = "SELECT count(*), MSG_FROM_NAME, IS_ERROR_FLAG, ERROR_CD, RETRY_CNT from MESSAGE_STORE where MSG_FROM_NUM = ? group by MSG_FROM_NAME, IS_ERROR_FLAG";
 	}
 }

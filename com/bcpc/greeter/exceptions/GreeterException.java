@@ -5,7 +5,7 @@ public class GreeterException extends Exception {
 	private static final long serialVersionUID = -4292624102805187153L;
 
 	public enum ErrorCode {
-		FORMAT_ERROR(1001), ALREADY_REGISTERED_ERROR(1002);
+		FORMAT_ERROR(1001), ALREADY_REGISTERED_ERROR(1002), EXCEEDED_MAX_RETRY_CNT(9999);
 
 		private int id;
 
@@ -31,8 +31,11 @@ public class GreeterException extends Exception {
 		case ALREADY_REGISTERED_ERROR:
 			resolvedMessage = "Thank you, your number is already registered.";
 			break;
+		case EXCEEDED_MAX_RETRY_CNT:
+			resolvedMessage = "This number has exceeded the max retries";
+			throw new GreeterUnresolvedException(resolvedMessage, ErrorCode.EXCEEDED_MAX_RETRY_CNT);
 		default:
-			throw new GreeterUnresolvedException("Unresolved Exception");
+			throw new GreeterUnresolvedException("Unresolved Exception", null);
 		}
 
 		return String.format("%s %s", resolvedMessage, message);
